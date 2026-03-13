@@ -114,11 +114,14 @@ export async function sendSummary(
     console.log(`[Controller] Sending summary to ${phoneNumber}…`);
 
     // --- Dispatch the WhatsApp message ---
-    await sendWhatsAppSummary(phoneNumber, summary);
+    const twilioLog = await sendWhatsAppSummary(phoneNumber, summary);
 
     res.status(200).json({
       success: true,
-      data: { message: "WhatsApp message sent successfully." },
+      data: { 
+        message: "WhatsApp message sent successfully.",
+        twilioLog
+      },
     });
   } catch (error) {
     next(error);

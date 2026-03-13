@@ -79,7 +79,7 @@ function formatSummaryMessage(summary: MedicalSummary): string {
 export async function sendWhatsAppSummary(
   phoneNumber: string,
   summary: MedicalSummary
-): Promise<void> {
+): Promise<any> {
   const client = getTwilioClient();
 
   // The "from" number must be a Twilio WhatsApp-enabled number
@@ -102,4 +102,5 @@ export async function sendWhatsAppSummary(
   });
 
   console.log(`[WhatsApp] Message sent successfully. SID: ${message.sid}`);
+  return message;
 }
