@@ -63,7 +63,7 @@
           "status": "OK",
           "code": 200,
           "header": [{ "key": "Content-Type", "value": "application/json" }],
-          "body": "{\n  \"success\": true,\n  \"data\": {\n    \"transcript\": \"Doctor: Kya taklif hai? Patient: Sir mujhe do din se bukhar hai aur sar mein dard hai...\",\n    \"summary\": {\n      \"symptoms\": \"Fever for 2 days, headache\",\n      \"diagnosis\": \"Viral fever\",\n      \"prescription\": \"Paracetamol 500mg twice daily for 3 days, rest and hydration\"\n    }\n  }\n}"
+          "body": "{\n  \"success\": true,\n  \"data\": {\n    \"actualTranscript\": \"Doctor: Kya taklif hai? Patient: Sir mujhe do din se bukhar hai aur sar mein dard hai...\",\n    \"summary\": {\n      \"symptoms\": \"Fever for 2 days, headache\",\n      \"diagnosis\": \"Viral fever\",\n      \"prescription\": \"Paracetamol 500mg twice daily for 3 days, rest and hydration\"\n    }\n  }\n}"
         },
         {
           "name": "400 — No Audio File",

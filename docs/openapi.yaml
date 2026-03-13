@@ -71,7 +71,7 @@ paths:
                   data:
                     type: object
                     properties:
-                      transcript:
+                      actualTranscript:
                         type: string
                         example: "Doctor: Kya taklif hai? Patient: Sir mujhe do din se bukhar hai..."
                       summary:

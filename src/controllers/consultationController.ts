@@ -56,11 +56,11 @@ export async function processConsultation(
 
     // --- Return both transcript and summary ---
     const response: ApiSuccessResponse<{
-      transcript: string;
+      actualTranscript: string;
       summary: MedicalSummary;
     }> = {
       success: true,
-      data: { transcript, summary },
+      data: { actualTranscript: transcript, summary },
     };
 
     res.status(200).json(response);

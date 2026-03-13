@@ -1,11 +1,11 @@
 // =============================================================================
 // ASR Service — Automatic Speech Recognition
 // =============================================================================
-// Responsible for converting audio files (Hindi / Hinglish / English) into text.
+// Responsible for converting doctor-patient audio conversations into text.
+// Optimized for English-only conversations.
 //
 // Provider priority:
-//   1. Groq  (FREE) — runs Whisper large-v3-turbo, extremely fast
-//   2. Sarvam AI    — if configured (paid, optimised for Indic languages)
+//   1. Groq (FREE) — runs Whisper large-v3-turbo, extremely fast
 //
 // Groq offers a generous free tier with no credit card required.
 // Sign up at https://console.groq.com to get your free API key.
@@ -34,12 +34,11 @@ const SARVAM_API_URL = "https://api.sarvam.ai/speech-to-text-translate";
  * Accepts a Multer file object and returns the transcribed text.
  *
  * Strategy:
- *  1. Try Groq (FREE — runs Whisper large-v3-turbo with excellent Hindi support).
- *  2. If Groq fails or is not configured, fall back to Sarvam AI.
+ *  1. Try Groq (FREE — runs Whisper large-v3-turbo).
  *
  * @param audioFile - The uploaded audio file from Multer
  * @returns The transcribed text as a plain string
- * @throws Error if all providers fail
+ * @throws Error if the provider fails
  */
 export async function transcribeAudio(
   audioFile: Express.Multer.File
@@ -107,8 +106,8 @@ async function transcribeWithGroq(
   // whisper-large-v3-turbo is the fastest and best quality on Groq
   form.append("model", "whisper-large-v3-turbo");
 
-  // Hint for Hindi / Hinglish — helps the model prioritise Devanagari tokens
-  form.append("language", "hi");
+  // Hint for English
+  form.append("language", "en");
 
   // Plain text response format for simplicity
   form.append("response_format", "json");
