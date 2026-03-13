@@ -1,0 +1,135 @@
+{
+  "info": {
+    "name": "Doctor Backend API",
+    "description": "Healthcare Medical Scribe — transcribe doctor-patient audio and deliver summaries via WhatsApp.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        },
+        "description": "Simple health-check endpoint to verify the server is running."
+      },
+      "response": [
+        {
+          "name": "200 — Healthy",
+          "status": "OK",
+          "code": 200,
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n  \"status\": \"ok\",\n  \"service\": \"doctor-backend\",\n  \"timestamp\": \"2026-03-13T10:00:00.000Z\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Process Consultation",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/consultation/process",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "consultation", "process"]
+        },
+        "description": "Upload an audio file of a doctor-patient conversation. The server transcribes it (Groq Whisper) and extracts a structured medical summary (GPT-4o).",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "audioBlob",
+              "type": "file",
+              "src": "",
+              "description": "Audio file (wav, mp3, mp4, webm, ogg, flac, m4a). Max 20 MB."
+            }
+          ]
+        }
+      },
+      "response": [
+        {
+          "name": "200 — Summary Extracted",
+          "status": "OK",
+          "code": 200,
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n  \"success\": true,\n  \"data\": {\n    \"transcript\": \"Doctor: Kya taklif hai? Patient: Sir mujhe do din se bukhar hai aur sar mein dard hai...\",\n    \"summary\": {\n      \"symptoms\": \"Fever for 2 days, headache\",\n      \"diagnosis\": \"Viral fever\",\n      \"prescription\": \"Paracetamol 500mg twice daily for 3 days, rest and hydration\"\n    }\n  }\n}"
+        },
+        {
+          "name": "400 — No Audio File",
+          "status": "Bad Request",
+          "code": 400,
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n  \"success\": false,\n  \"error\": \"No audio file provided. Upload a file under the field 'audioBlob'.\"\n}"
+        },
+        {
+          "name": "415 — Unsupported Format",
+          "status": "Unsupported Media Type",
+          "code": 415,
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n  \"success\": false,\n  \"error\": \"Unsupported audio format: image/png. Accepted: wav, mp3, mp4, ogg, webm, flac, m4a.\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Send Summary via WhatsApp",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/consultation/send",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "consultation", "send"]
+        },
+        "description": "Send a medical summary to a patient or doctor via WhatsApp using Twilio.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phoneNumber\": \"+919876543210\",\n  \"summary\": {\n    \"symptoms\": \"Fever for 2 days, headache\",\n    \"diagnosis\": \"Viral fever\",\n    \"prescription\": \"Paracetamol 500mg twice daily for 3 days, rest and hydration\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [
+        {
+          "name": "200 — Message Sent",
+          "status": "OK",
+          "code": 200,
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"WhatsApp message sent successfully.\"\n  }\n}"
+        },
+        {
+          "name": "400 — Missing Phone Number",
+          "status": "Bad Request",
+          "code": 400,
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n  \"success\": false,\n  \"error\": \"Missing or invalid 'phoneNumber'. Provide an E.164 formatted number.\"\n}"
+        },
+        {
+          "name": "400 — Invalid Summary",
+          "status": "Bad Request",
+          "code": 400,
+          "header": [{ "key": "Content-Type", "value": "application/json" }],
+          "body": "{\n  \"success\": false,\n  \"error\": \"Missing or invalid 'summary'. Provide an object with symptoms, diagnosis, and prescription strings.\"\n}"
+        }
+      ]
+    }
+  ]
+}
