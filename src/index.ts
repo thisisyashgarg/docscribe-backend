@@ -52,8 +52,19 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // ---------------------------------------------------------------------------
-// Health Check
+// Root & Health Check
 // ---------------------------------------------------------------------------
+
+/**
+ * GET /
+ * Simple welcome message to verify the server is reachable.
+ */
+app.get("/", (_req: Request, res: Response) => {
+  res.status(200).json({
+    success: true,
+    message: "🏥 Welcome to the Doctor Backend API. Use /api-docs to see the documentation.",
+  });
+});
 
 /**
  * GET /health

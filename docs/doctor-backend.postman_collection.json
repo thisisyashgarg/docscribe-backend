@@ -13,6 +13,19 @@
   ],
   "item": [
     {
+      "name": "Root - Welcome",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/",
+          "host": ["{{baseUrl}}"],
+          "path": [""]
+        }
+      },
+      "response": []
+    },
+    {
       "name": "Health Check",
       "request": {
         "method": "GET",
