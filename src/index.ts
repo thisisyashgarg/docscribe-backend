@@ -38,6 +38,7 @@ app.use(
       "http://localhost:3000", // Next.js / Vite default
       "http://localhost:5173", // Vite alternate
       "http://localhost:5174", // Vite alternate
+      "https://docscribe-eta.vercel.app",
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
