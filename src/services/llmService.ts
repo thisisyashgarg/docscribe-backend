@@ -1,8 +1,11 @@
 // =============================================================================
 // LLM Service — Medical Summary Generation
 // =============================================================================
-// Uses OpenAI GPT-4o to extract structured medical information from a
-// doctor-patient conversation transcript.
+// Uses LLMs to extract structured medical information from a transcript.
+//
+// Provider priority:
+//   1. Groq (FREE) — runs Llama 3 70B, extremely fast and cost-effective
+//   2. OpenAI      — if configured (paid fallback)
 //
 // Key constraints:
 //  • temperature: 0.0  — deterministic, no creative embellishment
@@ -14,19 +17,30 @@ import OpenAI from "openai";
 import { MedicalSummary } from "../types";
 
 // ---------------------------------------------------------------------------
-// OpenAI Client (initialised lazily on first call)
+// Clients (initialised lazily)
 // ---------------------------------------------------------------------------
 
+let groqClient: OpenAI | null = null;
 let openaiClient: OpenAI | null = null;
 
-function getOpenAIClient(): OpenAI {
+function getGroqClient(): OpenAI | null {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey || apiKey === "your_groq_api_key") return null;
+
+  if (!groqClient) {
+    groqClient = new OpenAI({
+      apiKey,
+      baseURL: "https://api.groq.com/openai/v1",
+    });
+  }
+  return groqClient;
+}
+
+function getOpenAIClient(): OpenAI | null {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey || apiKey === "your_openai_api_key") return null;
+
   if (!openaiClient) {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey || apiKey === "your_openai_or_anthropic_key") {
-      throw new Error(
-        "OPENAI_API_KEY is not configured. Set it in your .env file."
-      );
-    }
     openaiClient = new OpenAI({ apiKey });
   }
   return openaiClient;
@@ -38,11 +52,6 @@ function getOpenAIClient(): OpenAI {
 
 const SYSTEM_PROMPT = `You are a strict, factual medical scribe. You only output structured JSON matching the MedicalSummary interface. You will receive a transcript of a doctor-patient conversation in Hindi/English. Extract exactly three things: Symptoms, Diagnosis, and Prescription. If something is not explicitly stated, output "Not discussed". Do not infer or hallucinate.`;
 
-/**
- * User prompt template.
- * We wrap the transcript in XML-style delimiters so the model can clearly
- * distinguish instructions from content (prevents prompt injection).
- */
 function buildUserPrompt(transcript: string): string {
   return `Here is the doctor-patient conversation transcript:
 
@@ -65,24 +74,60 @@ Extract the medical summary and return ONLY valid JSON in this exact format:
 /**
  * generateMedicalSummary
  * -----------------------
- * Takes a plain-text transcript of a doctor-patient conversation and returns
- * a structured MedicalSummary object.
+ * Takes a plain-text transcript and returns a structured MedicalSummary.
  *
- * @param transcript - The conversation transcript (may be in Hindi, English, or mixed)
- * @returns A validated MedicalSummary object
- * @throws Error if the LLM fails or returns unparseable output
+ * Strategy:
+ *  1. Try Groq (FREE — Llama 3 70B).
+ *  2. If Groq fails, fall back to OpenAI GPT-4o.
  */
 export async function generateMedicalSummary(
   transcript: string
 ): Promise<MedicalSummary> {
-  const client = getOpenAIClient();
+  // --- Attempt 1: Groq (FREE) ---
+  const groq = getGroqClient();
+  if (groq) {
+    try {
+      console.log("[LLM] Attempting summary via Groq (Llama 3.3 70B Versatile)…");
+      return await callLLM(groq, "llama-3.3-70b-versatile", transcript);
+    } catch (error) {
+      console.warn(
+        "[LLM] Groq failed, falling back to OpenAI:",
+        error instanceof Error ? error.message : error
+      );
+    }
+  }
 
-  console.log("[LLM] Sending transcript to GPT-4o for summary extraction…");
+  // --- Attempt 2: OpenAI ---
+  const openai = getOpenAIClient();
+  if (openai) {
+    try {
+      console.log("[LLM] Attempting summary via OpenAI (GPT-4o)…");
+      return await callLLM(openai, "gpt-4o", transcript);
+    } catch (error) {
+      console.error(
+        "[LLM] OpenAI failed:",
+        error instanceof Error ? error.message : error
+      );
+      throw error;
+    }
+  }
 
+  throw new Error("No LLM provider configured or all providers failed.");
+}
+
+// ---------------------------------------------------------------------------
+// Internal Helper
+// ---------------------------------------------------------------------------
+
+async function callLLM(
+  client: OpenAI,
+  model: string,
+  transcript: string
+): Promise<MedicalSummary> {
   const completion = await client.chat.completions.create({
-    model: "gpt-4o",
-    temperature: 0.0, // Deterministic — no creativity allowed
-    response_format: { type: "json_object" }, // Enforce JSON output
+    model,
+    temperature: 0.0,
+    response_format: { type: "json_object" },
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: buildUserPrompt(transcript) },
@@ -90,34 +135,14 @@ export async function generateMedicalSummary(
     max_tokens: 1024,
   });
 
-  // -----------------------------------------------------------------------
-  // Parse and validate the model's response
-  // -----------------------------------------------------------------------
-
   const rawContent = completion.choices[0]?.message?.content;
-  if (!rawContent) {
-    throw new Error("LLM returned an empty response.");
-  }
+  if (!rawContent) throw new Error("LLM returned empty response.");
 
-  console.log("[LLM] Raw response received, parsing JSON…");
-
-  let parsed: Record<string, unknown>;
-  try {
-    parsed = JSON.parse(rawContent);
-  } catch {
-    throw new Error(
-      `LLM returned invalid JSON. Raw output: ${rawContent.substring(0, 200)}`
-    );
-  }
-
-  // Validate that all required fields are present and are strings
-  const summary: MedicalSummary = {
+  const parsed = JSON.parse(rawContent);
+  return {
     symptoms: typeof parsed.symptoms === "string" ? parsed.symptoms : "Not discussed",
     diagnosis: typeof parsed.diagnosis === "string" ? parsed.diagnosis : "Not discussed",
     prescription:
       typeof parsed.prescription === "string" ? parsed.prescription : "Not discussed",
   };
-
-  console.log("[LLM] Medical summary extracted successfully.");
-  return summary;
 }
