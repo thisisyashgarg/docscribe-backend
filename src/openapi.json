@@ -1,0 +1,278 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Doctor Backend API",
+    "description": "Healthcare Medical Scribe backend \u2014 transcribe doctor-patient audio\nconversations and deliver structured summaries via WhatsApp.\n",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Yash Garg"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "Local development"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "operationId": "healthCheck",
+        "tags": [
+          "System"
+        ],
+        "responses": {
+          "200": {
+            "description": "Server is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "service": {
+                      "type": "string",
+                      "example": "doctor-backend"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/consultation/process": {
+      "post": {
+        "summary": "Process consultation audio",
+        "operationId": "processConsultation",
+        "tags": [
+          "Consultation"
+        ],
+        "description": "Upload an audio file of a doctor-patient conversation.\nThe server transcribes it using Groq Whisper (free) and extracts\na structured medical summary using GPT-4o.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "audioBlob"
+                ],
+                "properties": {
+                  "audioBlob": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Audio file (wav, mp3, mp4, webm, ogg, flac, m4a). Max 20 MB."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transcript and structured summary extracted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "actualTranscript": {
+                          "type": "string",
+                          "example": "Doctor: Kya taklif hai? Patient: Sir mujhe do din se bukhar hai..."
+                        },
+                        "summary": {
+                          "$ref": "#/components/schemas/MedicalSummary"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No audio file provided",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "File too large (>20 MB)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported audio format",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error (ASR or LLM failure)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/consultation/send": {
+      "post": {
+        "summary": "Send summary via WhatsApp",
+        "operationId": "sendSummary",
+        "tags": [
+          "Consultation"
+        ],
+        "description": "Send a formatted medical summary to a phone number via WhatsApp\nusing the Twilio messaging API.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "phoneNumber",
+                  "summary"
+                ],
+                "properties": {
+                  "phoneNumber": {
+                    "type": "string",
+                    "description": "Recipient phone number in E.164 format",
+                    "example": "+919876543210"
+                  },
+                  "summary": {
+                    "$ref": "#/components/schemas/MedicalSummary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "WhatsApp message sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "example": "WhatsApp message sent successfully."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid phoneNumber / summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Twilio API failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "MedicalSummary": {
+        "type": "object",
+        "required": [
+          "symptoms",
+          "diagnosis",
+          "prescription"
+        ],
+        "properties": {
+          "symptoms": {
+            "type": "string",
+            "example": "Fever for 2 days, headache"
+          },
+          "diagnosis": {
+            "type": "string",
+            "example": "Viral fever"
+          },
+          "prescription": {
+            "type": "string",
+            "example": "Paracetamol 500mg twice daily for 3 days, rest and hydration"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "error": {
+            "type": "string",
+            "example": "Descriptive error message"
+          },
+          "details": {
+            "type": "string",
+            "description": "Additional details (only in development mode)"
+          }
+        }
+      }
+    }
+  }
+}

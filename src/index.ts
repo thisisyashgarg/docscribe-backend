@@ -12,12 +12,10 @@ dotenv.config();
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import swaggerUi from "swagger-ui-express";
-import YAML from "yamljs";
-import path from "path";
 import consultationRoutes from "./routes/consultationRoutes";
 
-// Load OpenAPI spec from the docs folder
-const swaggerDocument = YAML.load(path.join(__dirname, "../docs/openapi.yaml"));
+// Import OpenAPI spec directly as JSON for serverless portability
+import swaggerDocument from "./openapi.json";
 
 // ---------------------------------------------------------------------------
 // Express App
@@ -144,8 +142,9 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 // Start Server
 // ---------------------------------------------------------------------------
 
-app.listen(PORT, () => {
-  console.log(`
+if (process.env.NODE_ENV !== "test" && !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`
   ┌──────────────────────────────────────────────┐
   │                                              │
   │   🏥  Doctor Backend is running              │
@@ -156,7 +155,8 @@ app.listen(PORT, () => {
   │   📖  GET  /api-docs                         │
   │                                              │
   └──────────────────────────────────────────────┘
-  `);
-});
+    `);
+  });
+}
 
 export default app;
