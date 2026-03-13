@@ -64,8 +64,7 @@
             {
               "key": "audioBlob",
               "type": "file",
-              "src": "",
-              "description": "Audio file (wav, mp3, mp4, webm, ogg, flac, m4a). Max 20 MB."
+              "src": ""
             }
           ]
         }
@@ -112,7 +111,7 @@
         "description": "Send a medical summary to a patient or doctor via WhatsApp using Twilio.",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"phoneNumber\": \"+919876543210\",\n  \"summary\": {\n    \"symptoms\": \"Fever for 2 days, headache\",\n    \"diagnosis\": \"Viral fever\",\n    \"prescription\": \"Paracetamol 500mg twice daily for 3 days, rest and hydration\"\n  }\n}",
+          "raw": "{\n  \"phoneNumber\": \"+918770868566\",\n  \"summary\": \"🏥 *Medical Consultation Summary*\\n\\n🔹 *Symptoms:*\\nPersistent cough\\n\\n🔹 *Diagnosis:*\\nViral fever\\n\\n🔹 *Prescription:*\\nRest and fluids\"\n}",
           "options": {
             "raw": {
               "language": "json"

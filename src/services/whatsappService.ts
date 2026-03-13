@@ -44,7 +44,7 @@ function getTwilioClient(): twilio.Twilio {
  * Format the MedicalSummary into a clean, readable WhatsApp message.
  * Uses simple emoji markers for quick scanning on a phone screen.
  */
-function formatSummaryMessage(summary: MedicalSummary): string {
+export function formatSummaryMessage(summary: MedicalSummary): string {
   return [
     "🏥 *Medical Consultation Summary*",
     "",
@@ -78,7 +78,7 @@ function formatSummaryMessage(summary: MedicalSummary): string {
  */
 export async function sendWhatsAppSummary(
   phoneNumber: string,
-  summary: MedicalSummary
+  summary: string
 ): Promise<any> {
   const client = getTwilioClient();
 
@@ -91,14 +91,12 @@ export async function sendWhatsAppSummary(
     ? phoneNumber
     : `whatsapp:${phoneNumber}`;
 
-  const body = formatSummaryMessage(summary);
-
-  console.log(`[WhatsApp] Sending summary to ${toNumber}…`);
+  console.log(`[WhatsApp] Sending message to ${toNumber}…`);
 
   const message = await client.messages.create({
     from: fromNumber,
     to: toNumber,
-    body,
+    body: summary,
   });
 
   console.log(`[WhatsApp] Message sent successfully. SID: ${message.sid}`);

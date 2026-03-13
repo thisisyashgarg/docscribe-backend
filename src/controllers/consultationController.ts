@@ -8,7 +8,7 @@
 import { Request, Response, NextFunction } from "express";
 import { transcribeAudio } from "../services/asrService";
 import { generateMedicalSummary } from "../services/llmService";
-import { sendWhatsAppSummary } from "../services/whatsappService";
+import { sendWhatsAppSummary, formatSummaryMessage } from "../services/whatsappService";
 import { SendSummaryRequest, ApiSuccessResponse, MedicalSummary } from "../types";
 
 // ---------------------------------------------------------------------------
@@ -53,14 +53,22 @@ export async function processConsultation(
 
     // --- Step 2: Extract structured summary from transcript ---
     const summary = await generateMedicalSummary(transcript);
+    
+    // --- Step 3: Format the summary for display/sending ---
+    const formattedSummary = formatSummaryMessage(summary);
 
-    // --- Return both transcript and summary ---
+    // --- Return full results ---
     const response: ApiSuccessResponse<{
       actualTranscript: string;
       summary: MedicalSummary;
+      formattedSummary: string;
     }> = {
       success: true,
-      data: { actualTranscript: transcript, summary },
+      data: { 
+        actualTranscript: transcript, 
+        summary, 
+        formattedSummary
+      },
     };
 
     res.status(200).json(response);
@@ -97,21 +105,15 @@ export async function sendSummary(
       return;
     }
 
-    if (
-      !summary ||
-      typeof summary.symptoms !== "string" ||
-      typeof summary.diagnosis !== "string" ||
-      typeof summary.prescription !== "string"
-    ) {
+    if (!summary || typeof summary !== "string") {
       res.status(400).json({
         success: false,
-        error:
-          "Missing or invalid 'summary'. Provide an object with symptoms, diagnosis, and prescription strings.",
+        error: "Missing or invalid 'summary'. Provide a plain string to send.",
       });
       return;
     }
 
-    console.log(`[Controller] Sending summary to ${phoneNumber}…`);
+    console.log(`[Controller] Sending direct message to ${phoneNumber}…`);
 
     // --- Dispatch the WhatsApp message ---
     const twilioLog = await sendWhatsAppSummary(phoneNumber, summary);

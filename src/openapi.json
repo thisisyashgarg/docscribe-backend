@@ -1,12 +1,9 @@
 {
-  "openapi": "3.0.3",
+  "openapi": "3.0.0",
   "info": {
-    "title": "Doctor Backend API",
-    "description": "Healthcare Medical Scribe backend \u2014 transcribe doctor-patient audio\nconversations and deliver structured summaries via WhatsApp.\n",
-    "version": "1.0.0",
-    "contact": {
-      "name": "Yash Garg"
-    }
+    "title": "Doctor Backend",
+    "version": "1.1.0",
+    "description": "AI-powered medical scribe backend for transcription and WhatsApp delivery."
   },
   "servers": [
     {
@@ -46,29 +43,25 @@
     "/health": {
       "get": {
         "summary": "Health check",
-        "operationId": "healthCheck",
         "tags": [
           "System"
         ],
         "responses": {
           "200": {
-            "description": "Server is healthy",
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "status": {
-                      "type": "string",
-                      "example": "ok"
+                      "type": "string"
                     },
                     "service": {
-                      "type": "string",
-                      "example": "doctor-backend"
+                      "type": "string"
                     },
                     "timestamp": {
-                      "type": "string",
-                      "format": "date-time"
+                      "type": "string"
                     }
                   }
                 }
@@ -80,14 +73,11 @@
     },
     "/api/consultation/process": {
       "post": {
-        "summary": "Process consultation audio",
-        "operationId": "processConsultation",
+        "summary": "Transcribe audio and extract medical summary",
         "tags": [
           "Consultation"
         ],
-        "description": "Upload an audio file of a doctor-patient conversation.\nThe server transcribes it using Groq Whisper (free) and extracts\na structured medical summary using GPT-4o.\n",
         "requestBody": {
-          "required": true,
           "content": {
             "multipart/form-data": {
               "schema": {
@@ -99,7 +89,7 @@
                   "audioBlob": {
                     "type": "string",
                     "format": "binary",
-                    "description": "Audio file (wav, mp3, mp4, webm, ogg, flac, m4a). Max 20 MB."
+                    "description": "Audio file (mp3, wav, m4a, etc.)"
                   }
                 }
               }
@@ -108,69 +98,30 @@
         },
         "responses": {
           "200": {
-            "description": "Transcript and structured summary extracted successfully",
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "success": {
-                      "type": "boolean",
-                      "example": true
+                      "type": "boolean"
                     },
                     "data": {
                       "type": "object",
                       "properties": {
                         "actualTranscript": {
-                          "type": "string",
-                          "example": "Doctor: Kya taklif hai? Patient: Sir mujhe do din se bukhar hai..."
+                          "type": "string"
                         },
                         "summary": {
                           "$ref": "#/components/schemas/MedicalSummary"
+                        },
+                        "formattedSummary": {
+                          "type": "string"
                         }
                       }
                     }
                   }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "No audio file provided",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "File too large (>20 MB)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Unsupported audio format",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error (ASR or LLM failure)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -181,13 +132,10 @@
     "/api/consultation/send": {
       "post": {
         "summary": "Send summary via WhatsApp",
-        "operationId": "sendSummary",
         "tags": [
           "Consultation"
         ],
-        "description": "Send a formatted medical summary to a phone number via WhatsApp\nusing the Twilio messaging API.\n",
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -199,11 +147,11 @@
                 "properties": {
                   "phoneNumber": {
                     "type": "string",
-                    "description": "Recipient phone number in E.164 format",
-                    "example": "+919876543210"
+                    "example": "+918770868566"
                   },
                   "summary": {
-                    "$ref": "#/components/schemas/MedicalSummary"
+                    "type": "string",
+                    "description": "The text summary to send (e.g. the formattedSummary from /process)"
                   }
                 }
               }
@@ -212,46 +160,27 @@
         },
         "responses": {
           "200": {
-            "description": "WhatsApp message sent successfully",
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "success": {
-                      "type": "boolean",
-                      "example": true
+                      "type": "boolean"
                     },
                     "data": {
                       "type": "object",
                       "properties": {
                         "message": {
-                          "type": "string",
-                          "example": "WhatsApp message sent successfully."
+                          "type": "string"
+                        },
+                        "twilioLog": {
+                          "type": "object"
                         }
                       }
                     }
                   }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Missing or invalid phoneNumber / summary",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Twilio API failure",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -264,40 +193,15 @@
     "schemas": {
       "MedicalSummary": {
         "type": "object",
-        "required": [
-          "symptoms",
-          "diagnosis",
-          "prescription"
-        ],
         "properties": {
           "symptoms": {
-            "type": "string",
-            "example": "Fever for 2 days, headache"
+            "type": "string"
           },
           "diagnosis": {
-            "type": "string",
-            "example": "Viral fever"
+            "type": "string"
           },
           "prescription": {
-            "type": "string",
-            "example": "Paracetamol 500mg twice daily for 3 days, rest and hydration"
-          }
-        }
-      },
-      "ErrorResponse": {
-        "type": "object",
-        "properties": {
-          "success": {
-            "type": "boolean",
-            "example": false
-          },
-          "error": {
-            "type": "string",
-            "example": "Descriptive error message"
-          },
-          "details": {
-            "type": "string",
-            "description": "Additional details (only in development mode)"
+            "type": "string"
           }
         }
       }

@@ -32,8 +32,8 @@ export interface SendSummaryRequest {
   /** Recipient's phone number in E.164 format, e.g. "+919876543210" */
   phoneNumber: string;
 
-  /** The medical summary to deliver via WhatsApp */
-  summary: MedicalSummary;
+  /** The summary text to deliver via WhatsApp (already formatted) */
+  summary: string;
 }
 
 /**
