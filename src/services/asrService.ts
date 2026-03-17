@@ -106,8 +106,8 @@ async function transcribeWithGroq(
   // whisper-large-v3-turbo is the fastest and best quality on Groq
   form.append("model", "whisper-large-v3-turbo");
 
-  // Hint for English
-  form.append("language", "en");
+  // Hint for Hindi
+  form.append("language", "hi");
 
   // Plain text response format for simplicity
   form.append("response_format", "json");
