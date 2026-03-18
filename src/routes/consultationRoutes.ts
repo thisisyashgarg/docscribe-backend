@@ -71,8 +71,8 @@ router.post("/process", upload.single("audioBlob"), processConsultation);
 /**
  * POST /api/consultation/send
  * -----------------------------
- * Send a medical summary via WhatsApp.
- * Body: { phoneNumber: string, summary: MedicalSummary }
+ * Send a medical summary via Email (Mailgun).
+ * Body: { email: string, summary: string }
  */
 router.post("/send", sendSummary);
 

@@ -29,10 +29,10 @@ export interface MedicalSummary {
  * Shape of the JSON body expected by the POST /api/consultation/send endpoint.
  */
 export interface SendSummaryRequest {
-  /** Recipient's phone number in E.164 format, e.g. "+919876543210" */
-  phoneNumber: string;
+  /** Recipient's email address */
+  email: string;
 
-  /** The summary text to deliver via WhatsApp (already formatted) */
+  /** The summary text to deliver via Email (already formatted) */
   summary: string;
 }
 

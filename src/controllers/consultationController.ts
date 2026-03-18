@@ -8,7 +8,8 @@
 import { Request, Response, NextFunction } from "express";
 import { transcribeAudio } from "../services/asrService";
 import { generateMedicalSummary } from "../services/llmService";
-import { sendWhatsAppSummary, formatSummaryMessage } from "../services/whatsappService";
+import { sendEmailSummary } from "../services/mailgunService";
+import { formatMedicalSummary } from "../utils/formatter";
 import { SendSummaryRequest, ApiSuccessResponse, MedicalSummary } from "../types";
 
 // ---------------------------------------------------------------------------
@@ -57,7 +58,7 @@ export async function processConsultation(
     const summary = await generateMedicalSummary(transcript);
     
     // --- Step 3: Format the summary for display/sending ---
-    const formattedSummary = formatSummaryMessage(summary);
+    const formattedSummary = formatMedicalSummary(summary);
 
     // --- Return full results ---
     const response: ApiSuccessResponse<{
@@ -87,8 +88,8 @@ export async function processConsultation(
 /**
  * sendSummary
  * ------------
- * Accepts a JSON body with { phoneNumber, summary } and triggers a WhatsApp
- * message via Twilio.
+ * Accepts a JSON body with { email, summary } and triggers an email
+ * message via Mailgun.
  */
 export async function sendSummary(
   req: Request,
@@ -96,13 +97,13 @@ export async function sendSummary(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { phoneNumber, summary } = req.body as SendSummaryRequest;
+    const { email, summary } = req.body as SendSummaryRequest;
 
     // --- Input validation ---
-    if (!phoneNumber || typeof phoneNumber !== "string") {
+    if (!email || typeof email !== "string") {
       res.status(400).json({
         success: false,
-        error: "Missing or invalid 'phoneNumber'. Provide an E.164 formatted number.",
+        error: "Missing or invalid 'email'. Provide an email address.",
       });
       return;
     }
@@ -115,16 +116,16 @@ export async function sendSummary(
       return;
     }
 
-    console.log(`[Controller] Sending direct message to ${phoneNumber}…`);
+    console.log(`[Controller] Sending email summary to ${email}…`);
 
-    // --- Dispatch the WhatsApp message ---
-    const twilioLog = await sendWhatsAppSummary(phoneNumber, summary);
+    // --- Dispatch the Email message ---
+    const mailgunLog = await sendEmailSummary(email, summary);
 
     res.status(200).json({
       success: true,
       data: { 
-        message: "WhatsApp message sent successfully.",
-        twilioLog
+        message: "Email message sent successfully.",
+        mailgunLog
       },
     });
   } catch (error) {

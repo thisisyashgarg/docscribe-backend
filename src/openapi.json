@@ -3,7 +3,7 @@
   "info": {
     "title": "Doctor Backend",
     "version": "1.1.0",
-    "description": "AI-powered medical scribe backend for transcription and WhatsApp delivery."
+    "description": "AI-powered medical scribe backend for transcription and Email (Mailgun) delivery."
   },
   "servers": [
     {
@@ -131,7 +131,7 @@
     },
     "/api/consultation/send": {
       "post": {
-        "summary": "Send summary via WhatsApp",
+        "summary": "Send summary via Email (Mailgun)",
         "tags": [
           "Consultation"
         ],
@@ -141,13 +141,13 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "phoneNumber",
+                  "email",
                   "summary"
                 ],
                 "properties": {
-                  "phoneNumber": {
+                  "email": {
                     "type": "string",
-                    "example": "+918770868566"
+                    "example": "patient@example.com"
                   },
                   "summary": {
                     "type": "string",
@@ -175,7 +175,7 @@
                         "message": {
                           "type": "string"
                         },
-                        "twilioLog": {
+                        "mailgunLog": {
                           "type": "object"
                         }
                       }
