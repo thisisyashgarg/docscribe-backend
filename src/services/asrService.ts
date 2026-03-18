@@ -43,31 +43,34 @@ const SARVAM_API_URL = "https://api.sarvam.ai/speech-to-text-translate";
 export async function transcribeAudio(
   audioFile: Express.Multer.File
 ): Promise<string> {
-  // --- Attempt 1: Groq (FREE) ---
-  const groqKey = process.env.GROQ_API_KEY;
-  if (groqKey && groqKey !== "your_groq_api_key") {
-    try {
-      console.log("[ASR] Attempting transcription via Groq (free Whisper)…");
-      const transcript = await transcribeWithGroq(audioFile, groqKey);
-      console.log("[ASR] Groq transcription succeeded.");
-      return transcript;
-    } catch (error) {
-      console.warn(
-        "[ASR] Groq failed, falling back to Sarvam AI:",
-        error instanceof Error ? error.message : error
-      );
-    }
-  }
+  // --- Attempt 1: Groq (FREE) [DISABLED per user request] ---
+  
+  // const groqKey = process.env.GROQ_API_KEY;
+  // if (groqKey && groqKey !== "your_groq_api_key") {
+  //   try {
+  //     console.log("[ASR] Attempting transcription via Groq (free Whisper)…");
+  //     const transcript = await transcribeWithGroq(audioFile, groqKey);
+  //     console.log("[ASR] Groq transcription succeeded.");
+  //     return transcript;
+  //   } catch (error) {
+  //     console.warn(
+  //       "[ASR] Groq failed, falling back to Sarvam AI:",
+  //       error instanceof Error ? error.message : error
+  //     );
+  //   }
+  // }
+
 
   // --- Attempt 2: Sarvam AI ---
   const sarvamKey = process.env.SARVAM_API_KEY;
-  if (sarvamKey && sarvamKey !== "your_sarvam_api_key") {
+  if (sarvamKey) {
     try {
       console.log("[ASR] Attempting transcription via Sarvam AI…");
       const transcript = await transcribeWithSarvam(audioFile, sarvamKey);
-      console.log("[ASR] Sarvam AI transcription succeeded.");
+      console.log("[ASR] Sarvam AI transcription succeeded.", {transcript});
       return transcript;
     } catch (error) {
+      console.log({error});
       console.error(
         "[ASR] Sarvam AI transcription failed:",
         error instanceof Error ? error.message : error
@@ -129,41 +132,106 @@ async function transcribeWithGroq(
 }
 
 /**
- * Send audio to Sarvam AI speech-to-text-translate endpoint.
- * This endpoint natively supports Hindi, Hinglish, and English audio and
- * returns the transcript translated to English.
+ * Send audio to Sarvam AI speech-to-text-translate BATCH endpoint.
+ * This is optimized for LONG audio files (> 30s) and handles the full
+ * asynchronous job lifecycle: Initialize -> Upload -> Start -> Poll -> Download.
  */
 async function transcribeWithSarvam(
   audioFile: Express.Multer.File,
   apiKey: string
 ): Promise<string> {
-  const form = new FormData();
+  const BASE_URL = "https://api.sarvam.ai/speech-to-text/job/v1";
+  const fileName = audioFile.originalname || "audio.wav";
 
-  // Sarvam expects the audio file under the "file" field
-  form.append("file", audioFile.buffer, {
-    filename: audioFile.originalname || "audio.wav",
-    contentType: audioFile.mimetype || "audio/wav",
-  });
+  try {
+    // 1. Initialize Job
+    console.log("[ASR-Batch] Initializing job…");
+    const initRes = await axios.post(BASE_URL, {
+      job_parameters: {
+        model: "saaras:v3",
+        mode: "translate",
+        with_timestamps: false
+      }
+    }, { headers: { "api-subscription-key": apiKey } });
+    const jobId = initRes.data.job_id;
+    console.log(`[ASR-Batch] Job ID: ${jobId}`);
 
-  // Model selection — saaras:v2 supports Hindi/Hinglish natively
-  form.append("model", "saaras:v2");
+    // 2. Get Upload URL
+    const uploadRes = await axios.post(`${BASE_URL}/upload-files`, {
+      job_id: jobId,
+      files: [fileName]
+    }, { headers: { "api-subscription-key": apiKey } });
+    const uploadUrl = uploadRes.data.upload_urls[fileName].file_url;
 
-  // We want the transcript in English for downstream LLM processing
-  form.append("with_timestamps", "false");
+    // 3. Upload file to Azure storage (standard PUT as BlockBlob)
+    console.log("[ASR-Batch] Uploading audio…");
+    await axios.put(uploadUrl, audioFile.buffer, {
+      headers: {
+        "x-ms-blob-type": "BlockBlob",
+        "Content-Type": audioFile.mimetype || "audio/wav",
+      },
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity
+    });
 
-  const response = await axios.post(SARVAM_API_URL, form, {
-    headers: {
-      ...form.getHeaders(),
-      "api-subscription-key": apiKey,
-    },
-    timeout: 60_000,
-  });
+    // 4. Start processing
+    console.log("[ASR-Batch] Starting job…");
+    await axios.post(`${BASE_URL}/${jobId}/start`, {}, {
+      headers: { "api-subscription-key": apiKey }
+    });
 
-  // Sarvam returns { transcript: "..." } on success
-  const transcript: string = response.data?.transcript;
-  if (!transcript) {
-    throw new Error("Sarvam API returned an empty transcript.");
+    // 5. Poll for completion
+    let state = "Accepted";
+    let finalStatus: any = null;
+    const POLLING_INTERVAL = 3000;
+    const MAX_POLLS = 100; // ~5 minutes max
+    
+    for (let i = 0; i < MAX_POLLS; i++) {
+      await new Promise(r => setTimeout(r, POLLING_INTERVAL));
+      const s = await axios.get(`${BASE_URL}/${jobId}/status`, {
+        headers: { "api-subscription-key": apiKey }
+      });
+      state = s.data.job_state;
+      console.log(`[ASR-Batch] Polling... State: ${state}`);
+      
+      if (state === "Completed" || state === "Failed") {
+        finalStatus = s.data;
+        break;
+      }
+    }
+
+    if (state !== "Completed") {
+      throw new Error(`Sarvam batch job ${state === "Failed" ? "failed" : "timed out"}. Check dashboard for details.`);
+    }
+
+    // 6. Get Download URL
+    // We look for the output filename (usually 0.json for the first file)
+    const outputFileName = finalStatus.job_details[0]?.outputs[0]?.file_name || "0.json";
+    
+    const dlRes = await axios.post(`${BASE_URL}/download-files`, {
+      job_id: jobId,
+      files: [outputFileName]
+    }, { headers: { "api-subscription-key": apiKey } });
+    
+    const dlUrl = dlRes.data.download_urls[outputFileName].file_url;
+
+    // 7. Retrieve transcription content
+    const contentRes = await axios.get(dlUrl);
+    
+    // The format is usually { transcripts: [ { transcript: "..." } ] }
+    const resData = contentRes.data;
+    const transcript = resData.transcripts?.[0]?.transcript || 
+                      resData.transcript; // Fallback to flat model
+
+    if (!transcript) {
+      console.error("[ASR-Batch] Raw result data:", resData);
+      throw new Error("Sarvam batch result contained no transcript.");
+    }
+
+    return transcript;
+  } catch (error: any) {
+    const errorData = error.response?.data;
+    console.error("[ASR-Batch] Error details:", errorData || error.message);
+    throw new Error(`Sarvam Batch ASR fail: ${errorData?.detail || error.message}`);
   }
-
-  return transcript;
 }

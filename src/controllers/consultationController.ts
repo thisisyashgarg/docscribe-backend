@@ -29,6 +29,8 @@ export async function processConsultation(
   res: Response,
   next: NextFunction
 ): Promise<void> {
+  // Set a 5-minute timeout for this specific long-running request
+  req.setTimeout(300000);
   try {
     // --- Validate that an audio file was uploaded ---
     const audioFile = req.file;
