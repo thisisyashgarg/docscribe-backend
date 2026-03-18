@@ -32,8 +32,11 @@ export interface SendSummaryRequest {
   /** Recipient's email address */
   email: string;
 
-  /** The summary text to deliver via Email (already formatted) */
+  /** The plain text summary to deliver */
   summary: string;
+
+  /** Optional HTML version for better deliverability/presentation */
+  summaryHtml?: string;
 }
 
 /**

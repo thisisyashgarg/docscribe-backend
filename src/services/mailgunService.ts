@@ -8,7 +8,8 @@ import axios from "axios";
 
 export async function sendEmailSummary(
   email: string,
-  summary: string
+  summary: string,
+  html?: string
 ): Promise<any> {
   const apiKey = process.env.MAILGUN_API_KEY;
   const domain = process.env.MAILGUN_DOMAIN;
@@ -28,6 +29,10 @@ export async function sendEmailSummary(
   formData.append("to", email);
   formData.append("subject", "Medical Consultation Summary");
   formData.append("text", summary);
+  
+  if (html) {
+    formData.append("html", html);
+  }
 
   console.log(`[Mailgun] Sending email to ${email}…`);
 

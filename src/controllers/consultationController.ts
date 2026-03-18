@@ -58,19 +58,21 @@ export async function processConsultation(
     const summary = await generateMedicalSummary(transcript);
     
     // --- Step 3: Format the summary for display/sending ---
-    const formattedSummary = formatMedicalSummary(summary);
+    const { text, html } = formatMedicalSummary(summary);
 
     // --- Return full results ---
     const response: ApiSuccessResponse<{
       actualTranscript: string;
       summary: MedicalSummary;
       formattedSummary: string;
+      formattedHtml: string;
     }> = {
       success: true,
       data: { 
         actualTranscript: transcript, 
         summary, 
-        formattedSummary
+        formattedSummary: text,
+        formattedHtml: html
       },
     };
 
@@ -118,8 +120,8 @@ export async function sendSummary(
 
     console.log(`[Controller] Sending email summary to ${email}…`);
 
-    // --- Dispatch the Email message ---
-    const mailgunLog = await sendEmailSummary(email, summary);
+    // --- Dispatch the Email message (Multipart) ---
+    const mailgunLog = await sendEmailSummary(email, summary, req.body.summaryHtml);
 
     res.status(200).json({
       success: true,
