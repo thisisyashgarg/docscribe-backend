@@ -43,44 +43,40 @@ const SARVAM_API_URL = "https://api.sarvam.ai/speech-to-text-translate";
 export async function transcribeAudio(
   audioFile: Express.Multer.File
 ): Promise<string> {
-  // --- Attempt 1: Groq (FREE) [DISABLED per user request] ---
-  
-  // const groqKey = process.env.GROQ_API_KEY;
-  // if (groqKey && groqKey !== "your_groq_api_key") {
-  //   try {
-  //     console.log("[ASR] Attempting transcription via Groq (free Whisper)…");
-  //     const transcript = await transcribeWithGroq(audioFile, groqKey);
-  //     console.log("[ASR] Groq transcription succeeded.");
-  //     return transcript;
-  //   } catch (error) {
-  //     console.warn(
-  //       "[ASR] Groq failed, falling back to Sarvam AI:",
-  //       error instanceof Error ? error.message : error
-  //     );
-  //   }
-  // }
-
-
-  // --- Attempt 2: Sarvam AI ---
+  // --- Attempt 1: Sarvam AI ---
   const sarvamKey = process.env.SARVAM_API_KEY;
   if (sarvamKey) {
     try {
       console.log("[ASR] Attempting transcription via Sarvam AI…");
       const transcript = await transcribeWithSarvam(audioFile, sarvamKey);
-      console.log("[ASR] Sarvam AI transcription succeeded.", {transcript});
+      console.log("[ASR] Sarvam AI transcription succeeded.");
       return transcript;
     } catch (error) {
-      console.log({error});
-      console.error(
-        "[ASR] Sarvam AI transcription failed:",
+      console.warn(
+        "[ASR] Sarvam AI failed, falling back to Groq:",
         error instanceof Error ? error.message : error
       );
-      throw new Error("All ASR providers failed. Check API keys and audio format.");
+    }
+  }
+
+  // --- Attempt 2: Groq (FREE fallback) ---
+  const groqKey = process.env.GROQ_API_KEY;
+  if (groqKey && groqKey !== "your_groq_api_key") {
+    try {
+      console.log("[ASR] Attempting transcription via Groq (free Whisper fallback)…");
+      const transcript = await transcribeWithGroq(audioFile, groqKey);
+      console.log("[ASR] Groq transcription succeeded.");
+      return transcript;
+    } catch (error) {
+      console.error(
+        "[ASR] Groq fallback failed:",
+        error instanceof Error ? error.message : error
+      );
     }
   }
 
   throw new Error(
-    "No ASR provider configured. Set GROQ_API_KEY (free) or SARVAM_API_KEY in .env"
+    "All ASR providers failed. Check API keys and audio format."
   );
 }
 
@@ -109,8 +105,8 @@ async function transcribeWithGroq(
   // whisper-large-v3-turbo is the fastest and best quality on Groq
   form.append("model", "whisper-large-v3-turbo");
 
-  // Hint for Hindi
-  form.append("language", "hi");
+  // Groq will auto-detect the language if not specified
+  // form.append("language", "hi");
 
   // Plain text response format for simplicity
   form.append("response_format", "json");

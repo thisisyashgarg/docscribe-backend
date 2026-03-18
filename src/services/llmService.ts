@@ -50,7 +50,7 @@ function getOpenAIClient(): OpenAI | null {
 // System Prompt (exact wording from requirements)
 // ---------------------------------------------------------------------------
 
-const SYSTEM_PROMPT = `You are a strict, factual medical scribe. You only output structured JSON matching the MedicalSummary interface. You will receive a transcript of a doctor-patient conversation in Hindi. Extract exactly three things: Symptoms, Diagnosis, and Prescription in English. If something is not explicitly stated, output "Not discussed". Do not infer or hallucinate.`;
+const SYSTEM_PROMPT = `You are a strict, factual medical scribe. You only output structured JSON matching the MedicalSummary interface. You will receive a transcript of a doctor-patient conversation (which may be in English or an Indic language translated to English). Extract exactly three things: Symptoms, Diagnosis, and Prescription in English. If something is not explicitly stated, output "Not discussed". Do not infer or hallucinate.`;
 
 function buildUserPrompt(transcript: string): string {
   return `Here is the doctor-patient conversation transcript:
