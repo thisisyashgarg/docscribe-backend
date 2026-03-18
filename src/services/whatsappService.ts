@@ -1,40 +1,12 @@
 // =============================================================================
-// WhatsApp Service — Twilio Integration
+// WhatsApp Service — WhatsApp Cloud API Integration
 // =============================================================================
 // Sends a formatted medical summary to a patient or doctor via WhatsApp
-// using the official Twilio Node.js SDK.
+// using the official Meta WhatsApp Cloud API.
 // =============================================================================
 
-import twilio from "twilio";
+import axios from "axios";
 import { MedicalSummary } from "../types";
-
-// ---------------------------------------------------------------------------
-// Twilio Client (initialised lazily on first call)
-// ---------------------------------------------------------------------------
-
-let twilioClient: twilio.Twilio | null = null;
-
-function getTwilioClient(): twilio.Twilio {
-  if (!twilioClient) {
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-
-    if (
-      !accountSid ||
-      !authToken ||
-      accountSid === "your_twilio_sid" ||
-      authToken === "your_twilio_token"
-    ) {
-      throw new Error(
-        "Twilio credentials are not configured. Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN in .env"
-      );
-    }
-
-    twilioClient = twilio(accountSid, authToken);
-  }
-
-  return twilioClient;
-}
 
 // ---------------------------------------------------------------------------
 // Message Formatting
@@ -46,8 +18,6 @@ function getTwilioClient(): twilio.Twilio {
  */
 export function formatSummaryMessage(summary: MedicalSummary): string {
   return [
-    "🏥 *Medical Consultation Summary*",
-    "",
     "🔹 *Symptoms:*",
     summary.symptoms,
     "",
@@ -70,35 +40,74 @@ export function formatSummaryMessage(summary: MedicalSummary): string {
  * sendWhatsAppSummary
  * --------------------
  * Sends a formatted medical summary to the specified phone number via
- * WhatsApp using Twilio's Messaging API.
+ * official WhatsApp Cloud API.
  *
  * @param phoneNumber - Recipient's phone number in E.164 format (e.g. "+919876543210")
  * @param summary     - The structured MedicalSummary to send
- * @throws Error if Twilio credentials are missing or the message fails to send
+ * @throws Error if WhatsApp credentials are missing or the message fails to send
  */
 export async function sendWhatsAppSummary(
   phoneNumber: string,
   summary: string
 ): Promise<any> {
-  const client = getTwilioClient();
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
 
-  // The "from" number must be a Twilio WhatsApp-enabled number
-  const fromNumber =
-    process.env.TWILIO_WHATSAPP_NUMBER || "whatsapp:+14155238886";
+  if (
+    !phoneNumberId ||
+    !accessToken
+  ) {
+    throw new Error(
+      "WhatsApp credentials are not configured. Set WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_ACCESS_TOKEN in .env"
+    );
+  }
 
-  // Ensure the recipient number has the whatsapp: prefix
-  const toNumber = phoneNumber.startsWith("whatsapp:")
-    ? phoneNumber
-    : `whatsapp:${phoneNumber}`;
+  // The Cloud API requires phone numbers without the '+' sign or 'whatsapp:' prefix
+  const cleanNumber = phoneNumber.replace(/[^0-9]/g, "");
 
-  console.log(`[WhatsApp] Sending message to ${toNumber}…`);
+  console.log(`[WhatsApp] Sending message to ${cleanNumber}…`);
 
-  const message = await client.messages.create({
-    from: fromNumber,
-    to: toNumber,
-    body: summary,
-  });
+  const url = `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`;
 
-  console.log(`[WhatsApp] Message sent successfully. SID: ${message.sid}`);
-  return message;
+  const data = {
+    messaging_product: "whatsapp",
+    to: cleanNumber,
+    type: "template",
+    template: {
+      name: "docscribe",
+      language: {
+        code: "en_US",
+      },
+      components: [
+        {
+          type: "body",
+          parameters: [
+            {
+              type: "text",
+              text: summary,
+            },
+          ],
+        },
+      ],
+    },
+  };
+
+  try {
+    const response = await axios.post(url, data, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      timeout: 30000,
+    });
+
+    console.log(`[WhatsApp] Message sent successfully.`, {response:response?.data});
+    return response.data;
+  } catch (error: any) {
+    console.error(
+      "[WhatsApp] Failed to send message:",
+      error.response?.data || error.message
+    );
+    throw new Error("Failed to send WhatsApp message via Cloud API.");
+  }
 }
