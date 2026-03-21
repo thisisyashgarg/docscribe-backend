@@ -20,10 +20,6 @@ import FormData from "form-data";
 
 /** Groq Whisper endpoint (FREE tier) */
 const GROQ_WHISPER_URL = "https://api.groq.com/openai/v1/audio/transcriptions";
-
-/** Sarvam AI STT endpoint (paid fallback) */
-const SARVAM_API_URL = "https://api.sarvam.ai/speech-to-text-translate";
-
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
