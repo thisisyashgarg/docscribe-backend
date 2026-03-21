@@ -50,7 +50,7 @@ function getOpenAIClient(): OpenAI | null {
 // System Prompt (exact wording from requirements)
 // ---------------------------------------------------------------------------
 
-const SYSTEM_PROMPT = `You are a strict, factual medical scribe. You only output structured JSON matching the MedicalSummary interface. You will receive a transcript of a doctor-patient conversation (which may be in English or an Indic language translated to English). Extract exactly three things: Symptoms, Diagnosis, and Prescription in English. If something is not explicitly stated, output "Not discussed". Do not infer or hallucinate.`;
+const SYSTEM_PROMPT = `You are a strict, factual medical scribe. You only output structured JSON matching the MedicalSummary interface. You will receive a transcript of a doctor-patient conversation (which may be in English or an Indic language translated to English). Extract the following: doctorName (if mentioned), patientName (if mentioned), patientAge (if mentioned), patientWeight (if mentioned), Symptoms, Diagnosis, and Prescription in English. The Prescription should be an array of objects explicitly capturing the drug name, dosage (in mg, ml, etc), and instructions (frequency, duration). If a prescription is not discussed, output an empty array []. For all other missing fields, output "Not discussed". Do not infer or hallucinate.`;
 
 function buildUserPrompt(transcript: string): string {
   return `Here is the doctor-patient conversation transcript:
@@ -61,9 +61,19 @@ ${transcript}
 
 Extract the medical summary and return ONLY valid JSON in this exact format:
 {
+  "doctorName": "...", /* or "Not discussed" */
+  "patientName": "...", /* or "Not discussed" */
+  "patientAge": "...", /* or "Not discussed" */
+  "patientWeight": "...", /* or "Not discussed" */
   "symptoms": "...",
   "diagnosis": "...",
-  "prescription": "..."
+  "prescription": [
+    {
+      "name": "...",
+      "dosage": "...", /* e.g., "500mg" */
+      "instructions": "..." /* e.g., "3 times a day for 5 days" */
+    }
+  ] /* or [] if no prescription */
 }`;
 }
 
@@ -140,9 +150,12 @@ async function callLLM(
 
   const parsed = JSON.parse(rawContent);
   return {
+    doctorName: typeof parsed.doctorName === "string" && parsed.doctorName !== "Not discussed" ? parsed.doctorName : undefined,
+    patientName: typeof parsed.patientName === "string" && parsed.patientName !== "Not discussed" ? parsed.patientName : undefined,
+    patientAge: typeof parsed.patientAge === "string" && parsed.patientAge !== "Not discussed" ? parsed.patientAge : undefined,
+    patientWeight: typeof parsed.patientWeight === "string" && parsed.patientWeight !== "Not discussed" ? parsed.patientWeight : undefined,
     symptoms: typeof parsed.symptoms === "string" ? parsed.symptoms : "Not discussed",
     diagnosis: typeof parsed.diagnosis === "string" ? parsed.diagnosis : "Not discussed",
-    prescription:
-      typeof parsed.prescription === "string" ? parsed.prescription : "Not discussed",
+    prescription: Array.isArray(parsed.prescription) ? parsed.prescription : [],
   };
 }
